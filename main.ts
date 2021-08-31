@@ -1,4 +1,4 @@
-import { App, Modal, Notice, Plugin, PluginSettingTab, Setting } from 'obsidian';
+import { App, Modal, Notice, Plugin, PluginSettingTab, Setting, Workspace } from 'obsidian';
 import { exec } from "child_process";
 import { promisify } from "util";
 
@@ -24,7 +24,6 @@ enum IMStatus {
 
 export default class VimIMSwitchPlugin extends Plugin {
 	settings: VimIMSwitchSettings;
-	cm: CodeMirror.Editor;
 	imStatus = IMStatus.None;
 	fcitxRemotePath = "";
 
@@ -38,21 +37,22 @@ export default class VimIMSwitchPlugin extends Plugin {
 		this.addSettingTab(new IMSwitchSettingTab(this.app, this));
 
 		this.registerCodeMirror((cmEditor: CodeMirror.Editor) => {
-			this.cm = cmEditor;
 			// {mode: string, ?subMode: string} object. Modes: "insert", "normal", "replace", "visual". Visual sub-modes: "linewise", "blockwise"}
-			this.cm.on("vim-mode-change", async (cm:any) => {
-				if (cm.mode == "normal" || cm.mode == "visual") {
-					await this.getFcitxRemoteStatus();
-					if (this.imStatus == IMStatus.Activate) {
-						await this.deactivateIM();
-					}
-				} else if (cm.mode == "insert" || cm.mode == "replace") {
-					if (this.imStatus == IMStatus.Activate) {
-						await this.activateIM();
-					}
-				}
-			});
+			cmEditor.on("vim-mode-change", this.onVimModeChange);
 		});
+	}
+
+	onVimModeChange = async (cm: any) => {
+		if (cm.mode == "normal" || cm.mode == "visual") {
+			await this.getFcitxRemoteStatus();
+			if (this.imStatus == IMStatus.Activate) {
+				await this.deactivateIM();
+			}
+		} else if (cm.mode == "insert" || cm.mode == "replace") {
+			if (this.imStatus == IMStatus.Activate) {
+				await this.activateIM();
+			}
+		}
 	}
 
 	async runCmd(cmd: string, args: string[] = []) : Promise<string>{
@@ -94,6 +94,9 @@ export default class VimIMSwitchPlugin extends Plugin {
 	}
 
 	onunload() {
+		this.app.workspace.iterateCodeMirrors((cm: CodeMirror.Editor) => {
+			cm.off("vim-mode-change", this.onVimModeChange);
+		});
 		console.log('unloading plugin VimIMSwitchPlugin.');
 	}
 
