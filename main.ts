@@ -102,6 +102,10 @@ export default class VimIMSwitchPlugin extends Plugin {
 
 	async loadSettings() {
 		this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
+		this.updateCurrentPath();
+	}
+
+	async updateCurrentPath() {
 		switch (process.platform) {
 			case 'darwin':
 				this.fcitxRemotePath = this.settings.fcitxRemotePath_macOS;
@@ -119,7 +123,6 @@ export default class VimIMSwitchPlugin extends Plugin {
 	}
 
 	async saveSettings() {
-		await this.loadSettings();
 		await this.saveData(this.settings);
 	}
 }
@@ -147,6 +150,7 @@ class IMSwitchSettingTab extends PluginSettingTab {
 				.setValue(this.plugin.settings.fcitxRemotePath_macOS)
 				.onChange(async (value) => {
 					this.plugin.settings.fcitxRemotePath_macOS = value;
+					this.plugin.updateCurrentPath();
 					await this.plugin.saveSettings();
 				}));
 		new Setting(containerEl)
@@ -157,6 +161,7 @@ class IMSwitchSettingTab extends PluginSettingTab {
 				.setValue(this.plugin.settings.fcitxRemotePath_linux)
 				.onChange(async (value) => {
 					this.plugin.settings.fcitxRemotePath_linux = value;
+					this.plugin.updateCurrentPath();
 					await this.plugin.saveSettings();
 				}));
 		new Setting(containerEl)
@@ -167,6 +172,7 @@ class IMSwitchSettingTab extends PluginSettingTab {
 				.setValue(this.plugin.settings.fcitxRemotePath_windows)
 				.onChange(async (value) => {
 					this.plugin.settings.fcitxRemotePath_windows = value;
+					this.plugin.updateCurrentPath();
 					await this.plugin.saveSettings();
 				}));
 	}
