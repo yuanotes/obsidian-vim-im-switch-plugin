@@ -14,7 +14,7 @@
 
 2. 如果你使用的是 Linux 系统，则可以通过系统的包管理器安装 `fcitx` 输入法，一般 `fcitx` 输入法会自带 `fcitx-remote` 命令。
 
-3. 如果你使用的是 Windows 系统，那么**该插件暂时不能使用**。
+3. 如果你使用的是 Windows 系统，我通过AutoHotKey编译了一个简单的版本，可在 [这里](https://github.com/yuanotes/obsidian-vim-im-switch-plugin/releases/download/1.0.3/fcitx-remote.exe) 直接下载exe文件。
 
 ## 后续计划
 
