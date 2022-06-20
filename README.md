@@ -19,7 +19,6 @@
 ## 后续计划
 
 - 支持 [im-select](https://github.com/daipeihust/im-select)
-- 支持 Windows
 
 ## 捐赠
 
