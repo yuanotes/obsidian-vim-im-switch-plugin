@@ -1,6 +1,7 @@
-import { App, Modal, Notice, Plugin, PluginSettingTab, Setting, Workspace } from 'obsidian';
+import { App, Modal, Notice, Plugin, PluginSettingTab, Setting, Workspace, MarkdownView, TFile } from 'obsidian';
 import { exec } from "child_process";
 import { promisify } from "util";
+import * as CodeMirror from 'codemirror';
 
 interface VimIMSwitchSettings {
 	fcitxRemotePath_macOS: string;
@@ -27,6 +28,10 @@ export default class VimIMSwitchPlugin extends Plugin {
 	imStatus = IMStatus.None;
 	fcitxRemotePath = "";
 
+	private editorMode: 'cm5' | 'cm6' = null;
+	private initialized = false;
+	private cmEditor: CodeMirror.Editor = null;
+
 	async onload() {
 		console.log('loading plugin VimIMSwitchPlugin.');
 
@@ -36,10 +41,39 @@ export default class VimIMSwitchPlugin extends Plugin {
 
 		this.addSettingTab(new IMSwitchSettingTab(this.app, this));
 
-		this.registerCodeMirror((cmEditor: CodeMirror.Editor) => {
-			// {mode: string, ?subMode: string} object. Modes: "insert", "normal", "replace", "visual". Visual sub-modes: "linewise", "blockwise"}
-			cmEditor.on("vim-mode-change", this.onVimModeChange);
+		this.app.workspace.on('file-open', async (file: TFile) => {
+			if (!this.initialized)
+				await this.initialize();
+				// {mode: string, ?subMode: string} object. Modes: "insert", "normal", "replace", "visual". Visual sub-modes: "linewise", "blockwise"}
+				if (this.cmEditor) {
+					this.cmEditor.on("vim-mode-change", this.onVimModeChange);
+				}
 		});
+
+	}
+
+	async initialize() {
+		if (this.initialized)
+			return;
+
+		// Determine if we have the legacy Obsidian editor (CM5) or the new one (CM6).
+		// This is only available after Obsidian is fully loaded, so we do it as part of the `file-open` event.
+		if ('editor:toggle-source' in (this.app as any).commands.editorCommands) {
+			this.editorMode = 'cm6';
+			console.log('VimIMSwitchPlugin: using CodeMirror 6 mode');
+		} else {
+			this.editorMode = 'cm5';
+			console.log('VimIMSwitchPlugin: using CodeMirror 5 mode');
+		}
+
+		// For CM6 this actually returns an instance of the object named CodeMirror from cm_adapter of codemirror_vim
+		const view = this.app.workspace.getActiveViewOfType(MarkdownView);
+		if (this.editorMode == 'cm6')
+			this.cmEditor = (view as any).sourceMode?.cmEditor?.cm?.cm;
+		else
+			this.cmEditor = (view as any).sourceMode?.cmEditor;
+
+		this.initialized = true;
 	}
 
 	onVimModeChange = async (cm: any) => {
