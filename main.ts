@@ -128,9 +128,9 @@ export default class VimIMSwitchPlugin extends Plugin {
 	}
 
 	onunload() {
-		this.app.workspace.iterateCodeMirrors((cm: CodeMirror.Editor) => {
-			cm.off("vim-mode-change", this.onVimModeChange);
-		});
+		if (this.cmEditor) {
+			this.cmEditor.off("vim-mode-change", this.onVimModeChange);
+		}
 		console.log('unloading plugin VimIMSwitchPlugin.');
 	}
 
