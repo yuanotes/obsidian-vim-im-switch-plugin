@@ -46,6 +46,8 @@ export default class VimIMSwitchPlugin extends Plugin {
 				await this.initialize();
 				// {mode: string, ?subMode: string} object. Modes: "insert", "normal", "replace", "visual". Visual sub-modes: "linewise", "blockwise"}
 				if (this.cmEditor) {
+					// default is normal mode, try to deactivate the IM.
+					await this.deactivateIM();
 					this.cmEditor.on("vim-mode-change", this.onVimModeChange);
 				}
 		});
