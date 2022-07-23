@@ -1,4 +1,4 @@
-import { App, Modal, Notice, Plugin, PluginSettingTab, Setting, Workspace, MarkdownView, TFile } from 'obsidian';
+import { App, Modal, Notice, Plugin, PluginSettingTab, Setting, Workspace, MarkdownView, TFile, WorkspaceLeaf } from 'obsidian';
 import { exec } from "child_process";
 import { promisify } from "util";
 import * as CodeMirror from 'codemirror';
@@ -42,6 +42,7 @@ export default class VimIMSwitchPlugin extends Plugin {
 		this.addSettingTab(new IMSwitchSettingTab(this.app, this));
 
 		this.app.workspace.on('file-open', async (file: TFile) => {
+			console.log("file-open")
 			if (!this.initialized)
 				await this.initialize();
 				// {mode: string, ?subMode: string} object. Modes: "insert", "normal", "replace", "visual". Visual sub-modes: "linewise", "blockwise"}
@@ -52,12 +53,29 @@ export default class VimIMSwitchPlugin extends Plugin {
 				}
 		});
 
+		// Used when we open a new markdown view by "split vertically", 
+		// which will not trigger 'file-open' event on obsidian v0.15.6
+		this.app.workspace.on('active-leaf-change', async (leaf: WorkspaceLeaf) => {
+			console.log("active-leaf-change")
+			if(this.app.workspace.activeLeaf.view.getViewType() == "markdown")
+			{
+				console.log("focus on markdown view")
+				if (!this.initialized)
+					await this.initialize();
+				// {mode: string, ?subMode: string} object. Modes: "insert", "normal", "replace", "visual". Visual sub-modes: "linewise", "blockwise"}
+				if (this.cmEditor) {
+					// default is normal mode, try to deactivate the IM.
+					await this.deactivateIM();
+					this.cmEditor.on("vim-mode-change", this.onVimModeChange);
+				}
+			}
+		});
 	}
 
 	async initialize() {
 		if (this.initialized)
 			return;
-
+		console.log("initialize")
 		// Determine if we have the legacy Obsidian editor (CM5) or the new one (CM6).
 		// This is only available after Obsidian is fully loaded, so we do it as part of the `file-open` event.
 		if ('editor:toggle-source' in (this.app as any).commands.editorCommands) {
@@ -75,7 +93,10 @@ export default class VimIMSwitchPlugin extends Plugin {
 		else
 			this.cmEditor = (view as any).sourceMode?.cmEditor;
 
-		this.initialized = true;
+		// on Obsidian v0.15.6, we can't reuse cmEditor got at the beginning of application
+		// we need to get cmEditor again for every 'file-open' 
+		// and every 'split vertically' and every 'split horizontally'
+		// this.initialized = true;
 	}
 
 	onVimModeChange = async (cm: any) => {
