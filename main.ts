@@ -49,6 +49,7 @@ export default class VimIMSwitchPlugin extends Plugin {
 				if (this.cmEditor) {
 					// default is normal mode, try to deactivate the IM.
 					await this.deactivateIM();
+					this.cmEditor.off("vim-mode-change", this.onVimModeChange);
 					this.cmEditor.on("vim-mode-change", this.onVimModeChange);
 				}
 		});
@@ -66,6 +67,7 @@ export default class VimIMSwitchPlugin extends Plugin {
 				if (this.cmEditor) {
 					// default is normal mode, try to deactivate the IM.
 					await this.deactivateIM();
+					this.cmEditor.off("vim-mode-change", this.onVimModeChange);
 					this.cmEditor.on("vim-mode-change", this.onVimModeChange);
 				}
 			}
