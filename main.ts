@@ -7,25 +7,27 @@ interface VimIMSwitchSettings {
 	fcitxRemotePath_macOS: string;
 	fcitxRemotePath_windows: string;
 	fcitxRemotePath_linux: string;
+	IMSwitch_when_insert_mode: boolean;
 }
 
 const DEFAULT_SETTINGS: VimIMSwitchSettings = {
 	fcitxRemotePath_macOS: '/usr/local/bin/fcitx-remote',
 	fcitxRemotePath_windows: 'C:\\Program Files\\bin\\fcitx-remote',
 	fcitxRemotePath_linux: '/usr/bin/fcitx-remote',
+	IMSwitch_when_insert_mode: true,
 }
 
 const pexec = promisify(exec);
 
 enum IMStatus {
-	None,
-	Activate,
-	Deactivate,
+	Unknown = "Unknown",
+	Active = "Active",
+	Inactive = "Inactive",
 }
 
 export default class VimIMSwitchPlugin extends Plugin {
 	settings: VimIMSwitchSettings;
-	imStatus = IMStatus.None;
+	imStatus = IMStatus.Unknown;
 	fcitxRemotePath = "";
 
 	private editorMode: 'cm5' | 'cm6' = null;
@@ -33,22 +35,29 @@ export default class VimIMSwitchPlugin extends Plugin {
 	private cmEditor: CodeMirror.Editor = null;
 
 	async onload() {
-		console.log('loading plugin VimIMSwitchPlugin.');
+		console.log('Vim Input Method Switch: loading plugin');
 
 		await this.loadSettings();
 
-		// this.addStatusBarItem().setText('Vim IM Swith Enabled');
+		// this.addStatusBarItem().setText('Vim IM Switch Enabled');
 
 		this.addSettingTab(new IMSwitchSettingTab(this.app, this));
+		
+		this.app.workspace.on('quit', async () => {
+			await this.deactivateIM();
+		});
 
 		this.app.workspace.on('file-open', async (file: TFile) => {
-			console.log("file-open")
+			console.log("Vim Input Method Switch: file-open")
 			if (!this.initialized)
 				await this.initialize();
 				// {mode: string, ?subMode: string} object. Modes: "insert", "normal", "replace", "visual". Visual sub-modes: "linewise", "blockwise"}
 				if (this.cmEditor) {
 					// default is normal mode, try to deactivate the IM.
 					await this.deactivateIM();
+					if (this.imStatus == IMStatus.Unknown) {
+						await this.getFcitxRemoteStatus();
+					}
 					this.cmEditor.off("vim-mode-change", this.onVimModeChange);
 					this.cmEditor.on("vim-mode-change", this.onVimModeChange);
 				}
@@ -57,16 +66,19 @@ export default class VimIMSwitchPlugin extends Plugin {
 		// Used when we open a new markdown view by "split vertically", 
 		// which will not trigger 'file-open' event on obsidian v0.15.6
 		this.app.workspace.on('active-leaf-change', async (leaf: WorkspaceLeaf) => {
-			console.log("active-leaf-change")
+			console.log("Vim Input Method Switch: active-leaf-change")
 			if(this.app.workspace.activeLeaf.view.getViewType() == "markdown")
 			{
-				console.log("focus on markdown view")
+				console.log("Vim Input Method Switch: focus on markdown view")
 				if (!this.initialized)
 					await this.initialize();
 				// {mode: string, ?subMode: string} object. Modes: "insert", "normal", "replace", "visual". Visual sub-modes: "linewise", "blockwise"}
 				if (this.cmEditor) {
 					// default is normal mode, try to deactivate the IM.
 					await this.deactivateIM();
+					if (this.imStatus == IMStatus.Unknown) {
+						await this.getFcitxRemoteStatus();
+					}
 					this.cmEditor.off("vim-mode-change", this.onVimModeChange);
 					this.cmEditor.on("vim-mode-change", this.onVimModeChange);
 				}
@@ -77,15 +89,17 @@ export default class VimIMSwitchPlugin extends Plugin {
 	async initialize() {
 		if (this.initialized)
 			return;
-		console.log("initialize")
+	
+		console.log("Vim Input Method Switch: initializing")
+		
 		// Determine if we have the legacy Obsidian editor (CM5) or the new one (CM6).
 		// This is only available after Obsidian is fully loaded, so we do it as part of the `file-open` event.
 		if ('editor:toggle-source' in (this.app as any).commands.editorCommands) {
 			this.editorMode = 'cm6';
-			console.log('VimIMSwitchPlugin: using CodeMirror 6 mode');
+			console.log('Vim Input Method Switch: using CodeMirror 6 mode');
 		} else {
 			this.editorMode = 'cm5';
-			console.log('VimIMSwitchPlugin: using CodeMirror 5 mode');
+			console.log('Vim Input Method Switch: using CodeMirror 5 mode');
 		}
 
 		// For CM6 this actually returns an instance of the object named CodeMirror from cm_adapter of codemirror_vim
@@ -102,61 +116,75 @@ export default class VimIMSwitchPlugin extends Plugin {
 	}
 
 	onVimModeChange = async (cm: any) => {
+		// console.log("Vim Input Method Switch: Vim mode change to : " + cm.mode);
+		
 		if (cm.mode == "normal" || cm.mode == "visual") {
 			await this.getFcitxRemoteStatus();
-			if (this.imStatus == IMStatus.Activate) {
+			if (this.imStatus == IMStatus.Active) {
 				await this.deactivateIM();
 			}
 		} else if (cm.mode == "insert" || cm.mode == "replace") {
-			if (this.imStatus == IMStatus.Activate) {
+			if (this.imStatus == IMStatus.Inactive && this.settings.IMSwitch_when_insert_mode == true) {
 				await this.activateIM();
 			}
 		}
 	}
 
-	async runCmd(cmd: string, args: string[] = []) : Promise<string>{
+	async runCmd(cmd: string, args: string[] = []) : Promise<string> {
 		const output = await pexec(`${cmd} ${args.join(" ")}`);
-		return output.stdout;
+		return output.stdout || output.stderr;
 	}
 
 	async getFcitxRemoteStatus() {
 		if (this.fcitxRemotePath == "") {
-			console.log("VIM-IM-Switch-pugin: cannot get fcitx-remote path, please set it correctly.");
+			console.log("Vim Input Method Switch: cannot get fcitx-remote path, please set it correctly.");
 			return;
 		}
 		let fcitxRemoteOutput = await this.runCmd(this.fcitxRemotePath);
 		fcitxRemoteOutput = fcitxRemoteOutput.trimRight();
 		if (fcitxRemoteOutput == "1") {
-			this.imStatus = IMStatus.Deactivate;
+			this.imStatus = IMStatus.Inactive;
 		} else if (fcitxRemoteOutput == "2") {
-			this.imStatus = IMStatus.Activate;
+			this.imStatus = IMStatus.Active;
 		} else {
-			this.imStatus = IMStatus.None;
+			this.imStatus = IMStatus.Unknown;
 		}
-		console.log("Vim-IM-Swith-plugin: IM status " + this.imStatus.toString());
+		console.log("Vim Input Method Switch: input method status: " + this.imStatus.toString());
 	}
+	
 	async activateIM() {
 		if (this.fcitxRemotePath == "") {
-			console.log("VIM-IM-Switch-pugin: cannot get fcitx-remote path, please set it correctly.");
+			console.log("Vim Input Method Switch: cannot get fcitx-remote path, please set it correctly.");
 			return;
 		}
 		const output = await this.runCmd(this.fcitxRemotePath, ["-o"]);
-		console.log("Vim-IM-Swith-plugin: activate IM " + output);
+		console.log("Vim Input Method Switch: activate input method: " + output);
+		
+		if (/Changing to/gi.test(output)) {
+			this.imStatus = IMStatus.Inactive;
+			console.log("Vim Input Method Switch: input method status: " + this.imStatus.toString());
+		}
 	}
+	
 	async deactivateIM() {
 		if (this.fcitxRemotePath == "") {
-			console.log("VIM-IM-Switch-pugin: cannot get fcitx-remote path, please set it correctly.");
+			console.log("Vim Input Method Switch: cannot get fcitx-remote path, please set it correctly.");
 			return;
 		}
 		const output = await this.runCmd(this.fcitxRemotePath, ["-c"]);
-		console.log("Vim-IM-Swith-plugin: deactivate IM " + output);
+		console.log("Vim Input Method Switch: deactivate input method: " + output);
+		
+		if (/Changing to/gi.test(output)) {
+			this.imStatus = IMStatus.Inactive;
+			console.log("Vim Input Method Switch: input method status: " + this.imStatus.toString());
+		}
 	}
 
 	onunload() {
 		if (this.cmEditor) {
 			this.cmEditor.off("vim-mode-change", this.onVimModeChange);
 		}
-		console.log('unloading plugin VimIMSwitchPlugin.');
+		console.log('Vim Input Method Switch: unloading plugin');
 	}
 
 	async loadSettings() {
@@ -176,7 +204,7 @@ export default class VimIMSwitchPlugin extends Plugin {
 				this.fcitxRemotePath = this.settings.fcitxRemotePath_windows;
 				break;
 			default:
-				console.log('VIM-IM-Switch-plugin: does not support ' + process.platform + ' currently.');
+				console.log('Vim Input Method Switch: does not support ' + process.platform + ' currently.');
 				break;
 		}
 	}
@@ -233,6 +261,14 @@ class IMSwitchSettingTab extends PluginSettingTab {
 					this.plugin.settings.fcitxRemotePath_windows = value;
 					this.plugin.updateCurrentPath();
 					await this.plugin.saveSettings();
+				}));
+		new Setting(containerEl)
+			.setName('Auto switch input method when entering insert or replace mode')
+      .addToggle(toggle => toggle.setValue(this.plugin.settings.IMSwitch_when_insert_mode)
+        .onChange((value) => {
+					this.plugin.settings.IMSwitch_when_insert_mode = value;
+					this.plugin.updateCurrentPath();
+					this.plugin.saveSettings();
 				}));
 	}
 }
