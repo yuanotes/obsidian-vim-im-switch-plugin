@@ -57,7 +57,7 @@ export default class VimIMSwitchPlugin extends Plugin {
 
 		this.app.workspace.on('file-open', async (file: TFile) => {
 			this.debug_log("Vim Input Method Switch: file-open")
-			if (!this.initialized)
+			if (!this.initialized && file)
 				await this.initialize();
 				// {mode: string, ?subMode: string} object. Modes: "insert", "normal", "replace", "visual". Visual sub-modes: "linewise", "blockwise"}
 				if (this.cmEditor) {
@@ -75,8 +75,7 @@ export default class VimIMSwitchPlugin extends Plugin {
 		// which will not trigger 'file-open' event on obsidian v0.15.6
 		this.app.workspace.on('active-leaf-change', async (leaf: WorkspaceLeaf) => {
 			this.debug_log("Vim Input Method Switch: active-leaf-change")
-			if(this.app.workspace.activeLeaf.view.getViewType() == "markdown")
-			{
+			if(this.app.workspace.activeLeaf.view.getViewType() == "markdown") {
 				this.debug_log("Vim Input Method Switch: focus on markdown view")
 				if (!this.initialized)
 					await this.initialize();
@@ -95,8 +94,9 @@ export default class VimIMSwitchPlugin extends Plugin {
 	}
 
 	async initialize() {
-		if (this.initialized)
+		if (this.initialized) {
 			return;
+		}
 
 		this.debug_log("Vim Input Method Switch: initializing")
 
@@ -112,10 +112,11 @@ export default class VimIMSwitchPlugin extends Plugin {
 
 		// For CM6 this actually returns an instance of the object named CodeMirror from cm_adapter of codemirror_vim
 		const view = this.app.workspace.getActiveViewOfType(MarkdownView);
-		if (this.editorMode == 'cm6')
+		if (this.editorMode == 'cm6') {
 			this.cmEditor = (view as any).sourceMode?.cmEditor?.cm?.cm;
-		else
+		} else {
 			this.cmEditor = (view as any).sourceMode?.cmEditor;
+		}
 
 		// on Obsidian v0.15.6, we can't reuse cmEditor got at the beginning of application
 		// we need to get cmEditor again for every 'file-open'
