@@ -26,7 +26,7 @@ enum IMStatus {
 export default class VimIMSwitchPlugin extends Plugin {
 	settings: VimIMSwitchSettings;
 	imStatus = IMStatus.None;
-	lastMode = "unknown";
+	formerMode = "unknown";
 	fcitxRemotePath = "";
 
 	private editorMode: 'cm5' | 'cm6' = null;
@@ -103,7 +103,7 @@ export default class VimIMSwitchPlugin extends Plugin {
 	}
 
 	onVimModeChange = async (cm: any) => {
-		if ((cm.mode == "normal" || cm.mode == "visual") && (this.lastMode == "insert" || this.lastMode == "replace" || this.lastMode == "unknown")) {
+		if ((cm.mode == "normal" || cm.mode == "visual") && (this.formerMode == "insert" || this.formerMode == "replace" || this.formerMode == "unknown")) {
 			await this.getFcitxRemoteStatus();
 			if (this.imStatus == IMStatus.Activate) {
 				await this.deactivateIM();
@@ -113,7 +113,7 @@ export default class VimIMSwitchPlugin extends Plugin {
 				await this.activateIM();
 			}
 		}
-		this.lastMode = cm.mode;
+		this.formerMode = cm.mode;
 	}
 
 	async runCmd(cmd: string, args: string[] = []) : Promise<string>{
