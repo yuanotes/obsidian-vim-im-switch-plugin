@@ -1,6 +1,6 @@
 {
   "name": "obsidian-vim-im-switch-plugin",
-  "version": "1.0.3",
+  "version": "1.1.0",
   "description": "This is a plugin for Obsidian (https://obsidian.md). Switch input method with fcitx-remote when Vim keymap is enabled.",
   "main": "main.js",
   "scripts": {
