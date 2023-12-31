@@ -28,7 +28,6 @@ export default class VimIMSwitchPlugin extends Plugin {
 	imStatus = IMStatus.None;
 	fcitxRemotePath = "";
 
-	private editorMode: 'cm5' | 'cm6' = null;
 	private initialized = false;
 	private cmEditor: CodeMirror.Editor = null;
 
@@ -78,22 +77,11 @@ export default class VimIMSwitchPlugin extends Plugin {
 		if (this.initialized)
 			return;
 		console.log("initialize")
-		// Determine if we have the legacy Obsidian editor (CM5) or the new one (CM6).
 		// This is only available after Obsidian is fully loaded, so we do it as part of the `file-open` event.
-		if ('editor:toggle-source' in (this.app as any).commands.editorCommands) {
-			this.editorMode = 'cm6';
-			console.log('VimIMSwitchPlugin: using CodeMirror 6 mode');
-		} else {
-			this.editorMode = 'cm5';
-			console.log('VimIMSwitchPlugin: using CodeMirror 5 mode');
-		}
 
 		// For CM6 this actually returns an instance of the object named CodeMirror from cm_adapter of codemirror_vim
 		const view = this.app.workspace.getActiveViewOfType(MarkdownView);
-		if (this.editorMode == 'cm6')
-			this.cmEditor = (view as any).sourceMode?.cmEditor?.cm?.cm;
-		else
-			this.cmEditor = (view as any).sourceMode?.cmEditor;
+		this.cmEditor = (view as any).sourceMode?.cmEditor?.cm?.cm;
 
 		// on Obsidian v0.15.6, we can't reuse cmEditor got at the beginning of application
 		// we need to get cmEditor again for every 'file-open' 
