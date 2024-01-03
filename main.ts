@@ -154,7 +154,7 @@ export default class VimIMSwitchPlugin extends Plugin {
 		const output = await this.runCmd(this.fcitxRemotePath, ["-o"]);
 		this.debug_log("Vim Input Method Switch: activate input method: " + output);
 
-		if (/Changing to/gi.test(output)) { // https://github.com/xcodebuild/fcitx-remote-for-osx/blob/master/fcitx-remote/main.m#L95
+		if (/Changing to/gi.test(output) && process.platform == "darwin") { // https://github.com/xcodebuild/fcitx-remote-for-osx/blob/master/fcitx-remote/main.m#L95
 			this.imStatus = IMStatus.Inactive;
 			this.debug_log("Vim Input Method Switch: input method status: " + this.imStatus.toString());
 		}
@@ -168,7 +168,7 @@ export default class VimIMSwitchPlugin extends Plugin {
 		const output = await this.runCmd(this.fcitxRemotePath, ["-c"]);
 		this.debug_log("Vim Input Method Switch: deactivate input method: " + output);
 
-		if (/Changing to/gi.test(output)) { // https://github.com/xcodebuild/fcitx-remote-for-osx/blob/master/fcitx-remote/main.m#L95
+		if (/Changing to/gi.test(output) && process.platform == "darwin") { // https://github.com/xcodebuild/fcitx-remote-for-osx/blob/master/fcitx-remote/main.m#L95
 			this.imStatus = IMStatus.Inactive;
 			this.debug_log("Vim Input Method Switch: input method status: " + this.imStatus.toString());
 		}
